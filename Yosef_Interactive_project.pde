@@ -1,9 +1,12 @@
 
+
+
 import ddf.minim.*;
+import themidibus.*;
 
 Minim minim;
 AudioPlayer song;
-
+MidiBus myBus;
 
 int cols = 14;
 int rows = 14;
@@ -14,15 +17,19 @@ color[] colors = new color[5];
 RowMotion[] xMotion = new RowMotion[rows];
 RowMotion[] yMotion = new RowMotion[cols];
 
+// מצב לכל צורה
+boolean[] shapeVisible = new boolean[5];
+float[] shapeScale = new float[5]; // פי כמה לגדול
+float[] shapeSpeed = new float[5]; // מהירות
+
+// כיוונים
 float[] xDirections = new float[5];
 float[] yDirections = new float[5];
-float[] xSpeedFactors = new float[5];
-float[] ySpeedFactors = new float[5];
 
-float controlSpeed = 50000000; // משנה את המהירות הכללית של הסקץ'
+float controlSpeed = 500000000; // בסיס מהירות
 
 interface Drawer {
-  void draw(float cx, float cy, float s, color c);
+  void draw(float cx, float cy, float s, color c, float scale);
 }
 
 class RowMotion {
@@ -34,7 +41,7 @@ class RowMotion {
     this.offset = vertical ? random(height) : 0;
   }
 
-  void update(boolean vertical, float direction, float speedFactor, float controlSpeed) {
+  void update(boolean vertical, float direction, float speedFactor) {
     float delta = speed * direction * speedFactor * controlSpeed;
     offset += vertical ? -delta : delta;
 
@@ -52,9 +59,13 @@ void settings() {
 }
 
 void setup() {
-    minim = new Minim(this);
-  song = minim.loadFile("Four-Tet-Parallel-Jalebi.mp3"); // ודא שהקובץ נמצא בתיקיית data
+  minim = new Minim(this);
+  song = minim.loadFile("Four-Tet-Parallel-Jalebi.mp3");
   song.play();
+
+  MidiBus.list();
+  myBus = new MidiBus(this, "LPD8 mk2", "LPD8 mk2");
+
   rectMode(CENTER);
   textSize(20);
   fill(255);
@@ -66,9 +77,13 @@ void setup() {
   for (int i = 0; i < 5; i++) {
     xDirections[i] = 1;
     yDirections[i] = -1;
-    xSpeedFactors[i] = 1.0;
-    ySpeedFactors[i] = 1.0;
+    shapeScale[i] = 1.0;
+    shapeSpeed[i] = 1.0;
+    shapeVisible[i] = false;
   }
+
+  // צורה 5 תמיד נראית
+  shapeVisible[4] = true;
 }
 
 void draw() {
@@ -79,23 +94,25 @@ void draw() {
   drawVerticalLayer();
   blendMode(BLEND);
 
+  // טקסט מידע
   fill(255);
   for (int i = 0; i < 5; i++) {
-    text("X Speed " + i + ": " + nf(xSpeedFactors[i], 1, 2), 10, height - 120 + i * 20);
-    text("Y Speed " + i + ": " + nf(ySpeedFactors[i], 1, 2), 200, height - 120 + i * 20);
+    text("Shape " + i + " Speed: " + nf(shapeSpeed[i], 1, 2), 10, height - 120 + i * 20);
+    text("Shape " + i + " Scale: " + nf(shapeScale[i], 1, 2), 200, height - 120 + i * 20);
   }
 }
 
 void drawHorizontalLayer() {
   for (int y = 0; y < rows; y++) {
     int type = y % 5;
+    if (!shapeVisible[type]) continue; // רק אם הצורה גלויה
     color c = colors[type];
-    xMotion[y].update(false, xDirections[type], xSpeedFactors[type], controlSpeed);
+    xMotion[y].update(false, xDirections[type], shapeSpeed[type]);
 
     for (int x = 0; x <= cols; x++) {
       float cx = ((x * cellSize + xMotion[y].getOffset()) % (cols * cellSize) + cols * cellSize) % (cols * cellSize);
       float cy = y * cellSize + cellSize * 0.5;
-      drawers[type].draw(cx, cy, cellSize, c);
+      drawers[type].draw(cx, cy, cellSize, c, shapeScale[type]);
     }
   }
 }
@@ -103,56 +120,65 @@ void drawHorizontalLayer() {
 void drawVerticalLayer() {
   for (int x = 0; x < cols; x++) {
     int type = x % 5;
+    if (!shapeVisible[type]) continue;
     color c = colors[type];
-    yMotion[x].update(true, yDirections[type], ySpeedFactors[type], controlSpeed);
+    yMotion[x].update(true, yDirections[type], shapeSpeed[type]);
 
     for (int i = 0; i <= rows + 2; i++) {
       float cy = ((height + yMotion[x].getOffset() - i * cellSize) % (rows * cellSize) + rows * cellSize) % (rows * cellSize);
       float cx = x * cellSize + cellSize * 0.5;
-      drawers[type].draw(cx, cy, cellSize, c);
+      drawers[type].draw(cx, cy, cellSize, c, shapeScale[type]);
     }
   }
 }
 
-void keyPressed() {
-  // מהירות X
-  if (key == '1') xSpeedFactors[0] *= 1.1;
-  if (key == '2') xSpeedFactors[0] *= 0.9;
-  if (key == '3') xSpeedFactors[1] *= 1.1;
-  if (key == '4') xSpeedFactors[1] *= 0.9;
-  if (key == '5') xSpeedFactors[2] *= 1.1;
-  if (key == '6') xSpeedFactors[2] *= 0.9;
-  if (key == '7') xSpeedFactors[3] *= 1.1;
-  if (key == '8') xSpeedFactors[3] *= 0.9;
-  if (key == '9') xSpeedFactors[4] *= 1.1;
-  if (key == '0') xSpeedFactors[4] *= 0.9;
+// ---------------- MIDI -----------------
 
-  // מהירות Y
-  if (key == 'a') ySpeedFactors[0] *= 1.1;
-  if (key == 's') ySpeedFactors[0] *= 0.9;
-  if (key == 'd') ySpeedFactors[1] *= 1.1;
-  if (key == 'f') ySpeedFactors[1] *= 0.9;
-  if (key == 'g') ySpeedFactors[2] *= 1.1;
-  if (key == 'h') ySpeedFactors[2] *= 0.9;
-  if (key == 'j') ySpeedFactors[3] *= 1.1;
-  if (key == 'k') ySpeedFactors[3] *= 0.9;
-  if (key == 'l') ySpeedFactors[4] *= 1.1;
-  if (key == ';') ySpeedFactors[4] *= 0.9;
-
-  // כיוון X
-  if (key == 'q') xDirections[0] *= -1;
-  if (key == 'w') xDirections[1] *= -1;
-  if (key == 'e') xDirections[2] *= -1;
-  if (key == 'r') xDirections[3] *= -1;
-  if (key == 't') xDirections[4] *= -1;
-
-  // כיוון Y
-  if (key == 'u') yDirections[0] *= -1;
-  if (key == 'i') yDirections[1] *= -1;
-  if (key == 'o') yDirections[2] *= -1;
-  if (key == 'p') yDirections[3] *= -1;
-  if (key == '[') yDirections[4] *= -1;
+void controllerChange(int channel, int number, int value) {
+  float mapped;
+  // מהירות CC70-74 לצורות 1-4
+  if (channel == 0 && number >= 70 && number <= 74) {
+    int idx = number - 70;
+    mapped = map(value, 0, 127, 50000, 50000000);
+    shapeSpeed[idx] = mapped / controlSpeed;
+  }
+  // צורה 5 - מהירות CC76
+  if (channel == 0 && number == 76) {
+    mapped = map(value, 0, 127, 50000, 50000000);
+    shapeSpeed[4] = mapped / controlSpeed;
+  }
+  // צורה 5 - גודל CC77
+  if (channel == 0 && number == 77) {
+    shapeScale[4] = map(value, 0, 127, 1, 4);
+  }
 }
+
+void noteOn(int channel, int pitch, int velocity) {
+  if (channel == 9) {
+    int idx = -1;
+    if (pitch == 40) idx = 2; // X
+    if (pitch == 41) idx = 1;
+    if (pitch == 42) idx = 3;
+    if (pitch == 43) idx = 0;
+    if (pitch == 44) idx = 4; // צורה 5 לא צריכה Note On, אבל שיהיה
+
+    if (idx >= 0 && idx < 4) {
+      shapeScale[idx] = (velocity < 30) ? 1.0 : map(velocity, 30, 127, 1, 4);
+    }
+  }
+}
+
+void noteOff(int channel, int pitch, int velocity) {
+  if (channel == 9) {
+    if (pitch == 36) shapeVisible[2] = true; // X
+    if (pitch == 37) shapeVisible[1] = true;
+    if (pitch == 38) shapeVisible[3] = true;
+    if (pitch == 39) shapeVisible[0] = true;
+    // צורה 5 תמיד גלויה
+  }
+}
+
+// ---------------- SETUP HELPERS -----------------
 
 void initColors() {
   colors[0] = color(230, 232, 230);
@@ -172,40 +198,40 @@ void initMotionArrays() {
 }
 
 void initDrawers() {
-  drawers[0] = (cx, cy, s, c) -> {
+  drawers[0] = (cx, cy, s, c, scale) -> {
     stroke(c);
     strokeWeight(5);
-    float gap = s / 4;
+    float gap = s / 4 * scale;
     for (int i = -1; i <= 1; i++) {
-      line(cx + i * gap, cy - s/2, cx + i * gap, cy + s/2);
+      line(cx + i * gap, cy - s/2 * scale, cx + i * gap, cy + s/2 * scale);
     }
   };
 
-  drawers[1] = (cx, cy, s, c) -> {
+  drawers[1] = (cx, cy, s, c, scale) -> {
     noFill();
     stroke(c);
     strokeWeight(4);
-    ellipse(cx, cy, s, s);
+    ellipse(cx, cy, s * scale, s * scale);
   };
 
-  drawers[2] = (cx, cy, s, c) -> {
+  drawers[2] = (cx, cy, s, c, scale) -> {
     noFill();
     stroke(c);
     strokeWeight(3);
-    line(cx - s/2, cy - s/2, cx + s/2, cy + s/2);
-    line(cx + s/2, cy - s/2, cx - s/2, cy + s/2);
+    line(cx - s/2 * scale, cy - s/2 * scale, cx + s/2 * scale, cy + s/2 * scale);
+    line(cx + s/2 * scale, cy - s/2 * scale, cx - s/2 * scale, cy + s/2 * scale);
   };
 
-  drawers[3] = (cx, cy, s, c) -> {
+  drawers[3] = (cx, cy, s, c, scale) -> {
     noStroke();
     fill(c);
-    ellipse(cx, cy, s, s);
+    ellipse(cx, cy, s * scale, s * scale);
   };
 
-  drawers[4] = (cx, cy, s, c) -> {
+  drawers[4] = (cx, cy, s, c, scale) -> {
     noFill();
     stroke(c);
     strokeWeight(4);
-    rect(cx, cy, s, s);
+    rect(cx, cy, s * scale, s * scale);
   };
 }
