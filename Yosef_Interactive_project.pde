@@ -8,7 +8,7 @@ Minim minim;
 AudioPlayer song;
 MidiBus myBus;
 
-int cols = 14;
+int cols = 24;
 int rows = 14;
 int cellSize = 90;
 
@@ -55,7 +55,9 @@ class RowMotion {
 }
 
 void settings() {
-  size(cols * cellSize, rows * cellSize);
+    fullScreen();
+
+//  size(cols * cellSize, rows * cellSize);
 }
 
 void setup() {
@@ -97,8 +99,8 @@ void draw() {
   // טקסט מידע
   fill(255);
   for (int i = 0; i < 5; i++) {
-    text("Shape " + i + " Speed: " + nf(shapeSpeed[i], 1, 2), 10, height - 120 + i * 20);
-    text("Shape " + i + " Scale: " + nf(shapeScale[i], 1, 2), 200, height - 120 + i * 20);
+    //   text("Shape " + i + " Speed: " + nf(shapeSpeed[i], 1, 2), 10, height - 120 + i * 20);
+    //   text("Shape " + i + " Scale: " + nf(shapeScale[i], 1, 2), 200, height - 120 + i * 20);
   }
 }
 
@@ -135,23 +137,18 @@ void drawVerticalLayer() {
 // ---------------- MIDI -----------------
 
 void controllerChange(int channel, int number, int value) {
-  float mapped;
-  // מהירות CC70-74 לצורות 1-4
-  if (channel == 0 && number >= 70 && number <= 74) {
-    int idx = number - 70;
-    mapped = map(value, 0, 127, 50000, 50000000);
-    shapeSpeed[idx] = mapped / controlSpeed;
-  }
-  // צורה 5 - מהירות CC76
-  if (channel == 0 && number == 76) {
-    mapped = map(value, 0, 127, 50000, 50000000);
-    shapeSpeed[4] = mapped / controlSpeed;
-  }
-  // צורה 5 - גודל CC77
-  if (channel == 0 && number == 77) {
-    shapeScale[4] = map(value, 0, 127, 1, 4);
+  float mapped = map(value, 0, 127, 5000, 500000000);
+
+  if (channel == 0) {
+    if (number == 70) shapeSpeed[2] = mapped / controlSpeed; // X
+    if (number == 71) shapeSpeed[1] = mapped / controlSpeed; // עיגול כחול
+    if (number == 72) shapeSpeed[3] = mapped / controlSpeed; // עיגול צהוב
+    if (number == 73) shapeSpeed[0] = mapped / controlSpeed; // 3 קווים לבנים
+    if (number == 76) shapeSpeed[4] = mapped / controlSpeed; // צורה 5
+    if (number == 77) shapeScale[4] = map(value, 0, 127, 1, 4); // גודל צורה 5
   }
 }
+
 
 void noteOn(int channel, int pitch, int velocity) {
   if (channel == 9) {
@@ -211,7 +208,17 @@ void initDrawers() {
     noFill();
     stroke(c);
     strokeWeight(4);
-    ellipse(cx, cy, s * scale, s * scale);
+  //  arc(cx, cy, s * scale, s * scale, 0, TWO_PI);
+
+float r = s * scale / 2; // חצי הגודל
+triangle(
+  cx, cy - r,      // נקודה עליון
+  cx - r, cy + r,  // נקודה שמאל תחתון
+  cx + r, cy + r   // נקודה ימין תחתון
+);
+
+
+
   };
 
   drawers[2] = (cx, cy, s, c, scale) -> {
@@ -223,15 +230,18 @@ void initDrawers() {
   };
 
   drawers[3] = (cx, cy, s, c, scale) -> {
-    noStroke();
-    fill(c);
+    noFill();
+    //noStroke(c);
+ stroke(c);
+ strokeWeight(3);
+    //fill(c);
     ellipse(cx, cy, s * scale, s * scale);
   };
 
   drawers[4] = (cx, cy, s, c, scale) -> {
     noFill();
     stroke(c);
-    strokeWeight(4);
+    strokeWeight(2);
     rect(cx, cy, s * scale, s * scale);
   };
 }
