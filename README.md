@@ -1,8 +1,12 @@
-Instructions – Interactive Visual Work
 
 All rights reserved © Yosef Mashiah. Developed in collaboration with ChatGPT.
 
-1. Screen Layout
+
+
+
+Instructions – Interactive Visual Work
+
+
 
 The screen is divided into squares of cellSize (default 90 pixels).
 
