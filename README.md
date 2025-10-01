@@ -3,9 +3,7 @@ All rights reserved © Yosef Mashiah. Developed in collaboration with ChatGPT.
 
 
 
-
 Instructions – Interactive Visual Work
-
 
 
 The screen is divided into squares of cellSize (default 90 pixels).
